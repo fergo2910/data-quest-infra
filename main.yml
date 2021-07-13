@@ -12,6 +12,11 @@ Parameters:
     Type: String
     Default: prod
 
+  S3Bucket:
+    Description: S3 bucket
+    Type: String
+    Default: data-quest
+
 Resources:
   VPC:
     Type: AWS::CloudFormation::Stack
@@ -21,7 +26,28 @@ Resources:
         Environment: prod
         VpcName: data-quest
 
-  GlueResources:
+  IAM:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'iam/roles.yml'] ]
+      Parameters:
+        S3Bucket: !Ref S3Bucket
+
+  Glue:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'analytics/aws-glue.yml'] ]
+      Parameters:
+        GlueRole: !GetAtt IAM.Outputs.GlueRole
+        GlueRoleARN: !GetAtt IAM.Outputs.GlueRoleArn
+        S3Bucket: !Ref S3Bucket
+
+  # SageMaker:
+  #   Type: AWS::CloudFormation::Stack
+  #   Properties:
+  #     TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'sagemaker/notebook.yml'] ]
+  #     Parameters:
+  #       Identifier: data-quest-notebook
+  #       VPC: !GetAtt VPC.Outputs.VPC
+  #       Subnet: !GetAtt VPC.Outputs.PublicSubnet1
+  #       SagemakerRole: !GetAtt IAM.Outputs.SagemakerRoleArn

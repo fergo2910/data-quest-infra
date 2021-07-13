@@ -1,58 +1,101 @@
+Parameters:
+  GlueRole:
+    Type: String
+  GlueRoleARN:
+    Type: String
+  S3Bucket:
+    Type: String
+
 Resources:
+  #### Database ####
   DataQuestDatabase:
     Type: AWS::Glue::Database
     Properties:
       CatalogId: !Ref AWS::AccountId
       DatabaseInput:
-        Name: data-quest-db
-
-  CrawlerRole:
-    Type: AWS::IAM::Role
+        Name: database-data-quest
+  #### Data Lake Permissions ####
+  DatalakePermission:
+    Type: AWS::LakeFormation::Permissions
     Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: glue.amazonaws.com
-            Action: sts:AssumeRole
-      Description: S3AccessRoleForCrawlers
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
-      MaxSessionDuration: 28800
-      Path: /
-      RoleName: S3AccessRoleForCrawlers
-
-  Crawler:
+      DataLakePrincipal:
+        DataLakePrincipalIdentifier: !Ref GlueRoleARN
+      Permissions:
+        - ALL
+      PermissionsWithGrantOption:
+        - ALL
+      Resource:
+        DatabaseResource:
+          Name: database-data-quest
+  #### Crawler ####
+  DataQuestCrawler:
     Type: AWS::Glue::Crawler
     Properties:
       DatabaseName: !Ref DataQuestDatabase
-      Description: Source data from S3 directory
-      Name: Data-Quest-Crawler
-      Role: !Ref CrawlerRole
-      TablePrefix: data_quest_
+      Description: Crawler for DataQuest
+      Name: Crawler-DataQuest
+      Role: !Ref GlueRole
       SchemaChangePolicy:
         UpdateBehavior: "UPDATE_IN_DATABASE"
-        DeleteBehavior: "LOG"
-      Configuration: "{\"Version\":1.0,\"CrawlerOutput\":{\"Partitions\":{\"AddOrUpdateBehavior\":\"InheritFromTable\"},\"Tables\":{\"AddOrUpdateBehavior\":\"MergeNewColumns\"}}}"
+        DeleteBehavior: "DELETE_FROM_DATABASE"
+      Configuration: "{\"Version\":1.0,\"Grouping\":{\"TableGroupingPolicy\":\"CombineCompatibleSchemas\"}}"
       Targets:
         S3Targets:
-          - Path: s3://data-quest/
-
-  # GlueJob:
+          - Path: !Sub "s3://${S3Bucket}/"
+  # #### Job ####
+  # DataQuestJob:
   #   Type: AWS::Glue::Job
   #   Properties:
   #     Command:
   #       Name: glueetl
-  #       PythonVersion: 3
-  #       ScriptLocation: s3://data-quest-scripts/report-script.py
-  #     Description: "Job generating reports"
+  #       PythonVersion: "3"
+  #       ScriptLocation: "s3://S3Bucket-labs-6846257862436/glue-scripts/DataQuest.py"
+  #     DefaultArguments:
+  #       '--job-bookmark-option': job-bookmark-disable
+  #       '--enable-metrics': ''
+  #       '--TempDir': !Sub "s3://${S3Bucket}/glue-scripts/DataQuest.py.temp"
+  #       '--tempbucket': !Sub "s3://${S3Bucket}/glue-temp/"
+  #       '--database': !Ref DataQuestDatabase
+  #       '--tablename': !Ref S3Bucket
+  #       '--redshifturl': !Sub "jdbc:redshift://${RedshiftJDBCUrl}:5439/DataQuestdb?user=root&password=${MasterUserPassword}"
+  #       '--iamrole': !Ref GlueRoleARN
+  #       '--context': "job"
+  #     Description: DataQuest job ETL
   #     ExecutionProperty:
   #       MaxConcurrentRuns: 1
-  #     GlueVersion: 1.0
-  #     MaxCapacity: 2
-  #     MaxRetries: 1
-  #     Name: Data-Quest-job
-  #     Role: !Ref CrawlerRole
+  #     GlueVersion: "1.0"
+  #     MaxRetries: 0
+  #     Name: Job-DataQuest
+  #     NumberOfWorkers: 10
+  #     Role: !Ref GlueRole
   #     Timeout: 2880
+  #     WorkerType: G.1X
+  ##### Trigger #####
+  StartCrawler:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Actions:
+        - CrawlerName: !Ref DataQuestCrawler
+      Name: start-DataQuest-crawler
+      Type: ON_DEMAND
+      WorkflowName: !Ref DataQuestWorkflow
+  # ##### Trigger #####
+  # StartETL:
+  #   Type: AWS::Glue::Trigger
+  #   Properties:
+  #     Actions:
+  #       - JobName: !Ref DataQuestJob
+  #     Name: start-DataQuest-etl
+  #     Type: CONDITIONAL
+  #     Predicate:
+  #       Conditions:
+  #         - LogicalOperator: EQUALS
+  #           CrawlerName: !Ref DataQuestCrawler
+  #           CrawlState: SUCCEEDED
+  #     WorkflowName: !Ref DataQuestWorkflow
+  #### Workflow ####
+  DataQuestWorkflow:
+    Type: AWS::Glue::Workflow
+    Properties:
+      Description: workflow to execture DataQuest etl
+      Name: DataQuestworkflow
