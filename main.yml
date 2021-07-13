@@ -42,12 +42,12 @@ Resources:
         GlueRoleARN: !GetAtt IAM.Outputs.GlueRoleArn
         S3Bucket: !Ref S3Bucket
 
-  # SageMaker:
-  #   Type: AWS::CloudFormation::Stack
-  #   Properties:
-  #     TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'sagemaker/notebook.yml'] ]
-  #     Parameters:
-  #       Identifier: data-quest-notebook
-  #       VPC: !GetAtt VPC.Outputs.VPC
-  #       Subnet: !GetAtt VPC.Outputs.PublicSubnet1
-  #       SagemakerRole: !GetAtt IAM.Outputs.SagemakerRoleArn
+  SageMaker:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'sagemaker/notebook.yml'] ]
+      Parameters:
+        Identifier: data-quest-notebook
+        VPC: !GetAtt VPC.Outputs.VPC
+        Subnet: !GetAtt VPC.Outputs.PublicSubnet1
+        SagemakerRole: !GetAtt IAM.Outputs.SagemakerRoleArn
