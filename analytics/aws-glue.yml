@@ -1,0 +1,58 @@
+Resources:
+  DataQuestDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: data-quest-db
+
+  CrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Description: S3AccessRoleForCrawlers
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      MaxSessionDuration: 28800
+      Path: /
+      RoleName: S3AccessRoleForCrawlers
+
+  Crawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      DatabaseName: !Ref DataQuestDatabase
+      Description: Source data from S3 directory
+      Name: Data-Quest-Crawler
+      Role: !Ref CrawlerRole
+      TablePrefix: data_quest_
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+      Configuration: "{\"Version\":1.0,\"CrawlerOutput\":{\"Partitions\":{\"AddOrUpdateBehavior\":\"InheritFromTable\"},\"Tables\":{\"AddOrUpdateBehavior\":\"MergeNewColumns\"}}}"
+      Targets:
+        S3Targets:
+          - Path: s3://data-quest/
+
+  # GlueJob:
+  #   Type: AWS::Glue::Job
+  #   Properties:
+  #     Command:
+  #       Name: glueetl
+  #       PythonVersion: 3
+  #       ScriptLocation: s3://data-quest-scripts/report-script.py
+  #     Description: "Job generating reports"
+  #     ExecutionProperty:
+  #       MaxConcurrentRuns: 1
+  #     GlueVersion: 1.0
+  #     MaxCapacity: 2
+  #     MaxRetries: 1
+  #     Name: Data-Quest-job
+  #     Role: !Ref CrawlerRole
+  #     Timeout: 2880

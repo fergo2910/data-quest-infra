@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  # CF Settings
+  TemplateBucket:
+    Description: S3 bucket name that have templates. The nested templates forlder should reside in bucket-name/static.
+    Type: String
+    Default: data-quest-infra
+
+  Environment:
+    Description: Environment Name
+    Type: String
+    Default: prod
+
+Resources:
+  VPC:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'network/vpc.yml'] ]
+      Parameters:
+        Environment: prod
+        VpcName: data-quest
+
+  GlueResources:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join [ "", ['https://s3.amazonaws.com/', !Ref TemplateBucket,"/", 'analytics/aws-glue.yml'] ]

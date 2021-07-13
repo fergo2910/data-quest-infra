@@ -1,0 +1,71 @@
+Parameters:
+  S3Bucket:
+    Type: String
+
+Resources:
+  GlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Description: data-quest-s3-access
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
+      MaxSessionDuration: 43200
+      Path: /
+      RoleName: data-quest-s3-access
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
+                  - !Sub "arn:aws:s3:::${S3Bucket}"
+          PolicyName: data-quest-s3-access
+
+  SagemakerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: data-quest-sagemaker-access
+      Path: /service-role/
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:ListExports
+                  - s3:*
+                Resource:
+                  - "*"
+                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
+          PolicyName: data-quest-cfn-access
+
+Outputs:
+  GlueRole:
+    Description: IAM role for Glue Crawler
+    Value: !Ref GlueRole
+
+  GlueRoleArn:
+    Description: IAM role for Glue Job
+    Value: !GetAtt GlueRole.Arn
+
+  SagemakerRoleArn:
+    Description: IAM Role for Sagemaker
+    Value: !GetAtt SagemakerRole.Arn
